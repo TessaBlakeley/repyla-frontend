@@ -26,6 +26,8 @@ export default function Dashboard() {
   const [triggering, setTriggering] = useState(false)
   const [triggerMsg, setTriggerMsg] = useState('')
   const [welcome, setWelcome]   = useState(isWelcome)
+  const [keywords, setKeywords] = useState([])
+  const [kwLoading, setKwLoading] = useState(false)
 
   // Formstate
   const [character, setCharacter]     = useState('')
@@ -67,7 +69,14 @@ export default function Dashboard() {
     } catch {}
   }, [])
 
-  useEffect(() => { load(); loadReplies() }, [load, loadReplies])
+  const loadKeywords = useCallback(async () => {
+    try {
+      const { data } = await api.get('/keywords')
+      setKeywords(data)
+    } catch {}
+  }, [])
+
+  useEffect(() => { load(); loadReplies(); loadKeywords() }, [load, loadReplies, loadKeywords])
 
   const toggleActive = async () => {
     const newVal = !config.is_active
@@ -334,6 +343,15 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Keyword DM Triggers */}
+        <KeywordManager
+          keywords={keywords}
+          onRefresh={loadKeywords}
+          tier={user?.subscription_tier}
+          loading={kwLoading}
+          setLoading={setKwLoading}
+        />
+
         {/* Reply history */}
         <div className="card animate-fade-up delay-5" style={{ padding: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -414,6 +432,154 @@ function ReplyRow({ reply, onDelete, odd }) {
           Delete
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Keyword Manager ───────────────────────────────────────────────────────────
+
+function KeywordManager({ keywords, onRefresh, tier, loading, setLoading }) {
+  const isTrial = tier === 'trial'
+  const [showForm, setShowForm] = useState(false)
+  const [editItem, setEditItem] = useState(null)
+  const [keyword, setKeyword] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const openAdd = () => { setEditItem(null); setKeyword(''); setMessage(''); setError(''); setShowForm(true) }
+  const openEdit = (kw) => { setEditItem(kw); setKeyword(kw.keyword); setMessage(kw.dm_message); setError(''); setShowForm(true) }
+  const closeForm = () => { setShowForm(false); setEditItem(null) }
+
+  const save = async () => {
+    if (!keyword.trim() || !message.trim()) { setError('Keyword and message are required.'); return }
+    setSaving(true); setError('')
+    try {
+      if (editItem) {
+        await api.patch(`/keywords/${editItem.id}`, { keyword: keyword.trim(), dm_message: message.trim() })
+      } else {
+        await api.post('/keywords', { keyword: keyword.trim(), dm_message: message.trim() })
+      }
+      await onRefresh()
+      closeForm()
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Save failed.')
+    }
+    setSaving(false)
+  }
+
+  const toggle = async (kw) => {
+    try {
+      await api.patch(`/keywords/${kw.id}`, { is_active: !kw.is_active })
+      await onRefresh()
+    } catch {}
+  }
+
+  const del = async (id) => {
+    if (!confirm('Delete this keyword trigger?')) return
+    try { await api.delete(`/keywords/${id}`); await onRefresh() } catch {}
+  }
+
+  return (
+    <div className="card animate-fade-up" style={{ padding: 28, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div>
+          <h3 style={{ marginBottom: 4 }}>Keyword → DM Triggers</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            Auto-send a DM when someone comments a keyword.
+          </p>
+        </div>
+        {!isTrial && (
+          <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add keyword</button>
+        )}
+      </div>
+
+      {isTrial && (
+        <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--warning-light)', color: 'var(--warning)', fontSize: 13 }}>
+          Keyword DMs are available on Manual and Pro plans. <a href="/" style={{ fontWeight: 500, color: 'var(--warning)' }}>Upgrade →</a>
+        </div>
+      )}
+
+      {!isTrial && keywords.length === 0 && !showForm && (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-tertiary)', fontSize: 14 }}>
+          No keyword triggers yet. Add one to start sending automatic DMs.
+        </div>
+      )}
+
+      {/* Trigger list */}
+      {keywords.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: showForm ? 16 : 0 }}>
+          {keywords.map(kw => (
+            <div key={kw.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 14px', borderRadius: 'var(--radius-md)',
+              background: 'var(--surface-2)', gap: 12,
+              opacity: kw.is_active ? 1 : 0.5,
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{
+                    background: 'var(--accent-light)', color: 'var(--accent)',
+                    borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600,
+                    fontFamily: 'monospace',
+                  }}>
+                    {kw.keyword}
+                  </span>
+                  <span className="badge badge-gray" style={{ fontSize: 11 }}>
+                    {kw.sent_count} sent
+                  </span>
+                  {!kw.is_active && (
+                    <span className="badge badge-gray" style={{ fontSize: 11 }}>paused</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {kw.dm_message}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <label className="toggle" style={{ transform: 'scale(0.85)' }}>
+                  <input type="checkbox" checked={kw.is_active} onChange={() => toggle(kw)} />
+                  <span className="toggle-track" />
+                </label>
+                <button className="btn btn-secondary btn-sm" onClick={() => openEdit(kw)}>Edit</button>
+                <button className="btn btn-sm" style={{ color: 'var(--danger)' }} onClick={() => del(kw.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add / Edit form */}
+      {showForm && (
+        <div style={{ marginTop: 16, padding: '20px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <h4 style={{ marginBottom: 4 }}>{editItem ? 'Edit trigger' : 'New keyword trigger'}</h4>
+          <div className="form-group">
+            <label className="label">Keyword</label>
+            <input className="input" placeholder="e.g. LINK, INFO, PRICE"
+              value={keyword} onChange={e => setKeyword(e.target.value)} />
+            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
+              Case-insensitive. Can appear anywhere in the comment.
+            </p>
+          </div>
+          <div className="form-group">
+            <label className="label">DM message</label>
+            <textarea className="input" rows={3} placeholder="Hey! Here's the link you asked for: ..."
+              value={message} onChange={e => setMessage(e.target.value)}
+              style={{ minHeight: 80 }} />
+          </div>
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 13 }}>
+              {error}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary" onClick={closeForm}>Cancel</button>
+            <button className="btn btn-primary" onClick={save} disabled={saving}>
+              {saving ? <div className="spinner" /> : editItem ? 'Save changes' : 'Add trigger'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

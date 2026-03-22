@@ -16,7 +16,7 @@ export default function Layout({ children }) {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar user={user} logout={logout} />
+      <Sidebar user={user} logout={logout} nav={nav} />
       <main style={{ flex: 1, marginLeft: 'var(--sidebar-width)', minHeight: '100vh' }}>
         {children}
       </main>
@@ -24,7 +24,7 @@ export default function Layout({ children }) {
   )
 }
 
-function Sidebar({ user, logout }) {
+function Sidebar({ user, logout, nav }) {
   return (
     <aside style={{
       position: 'fixed', top: 0, left: 0, bottom: 0,
