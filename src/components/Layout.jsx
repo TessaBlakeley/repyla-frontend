@@ -50,7 +50,7 @@ function Sidebar({ user, logout, nav }) {
               fill="white" />
           </svg>
         </div>
-        <span style={{ fontWeight: 600, fontSize: 16, letterSpacing: '-0.02em' }}>ReplyBot</span>
+        <span style={{ fontWeight: 600, fontSize: 16, letterSpacing: '-0.02em' }}>Repyla</span>
       </div>
 
       {/* Navigation */}

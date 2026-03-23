@@ -110,7 +110,7 @@ export default function Landing() {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="white" />
             </svg>
           </div>
-          <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.02em' }}>ReplyBot</span>
+          <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.02em' }}>Repyla</span>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate('/login')}>
           Sign in

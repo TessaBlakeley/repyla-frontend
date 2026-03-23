@@ -166,7 +166,7 @@ export default function Settings() {
         {/* Danger zone */}
         <Section title="Sign out">
           <button className="btn btn-secondary" onClick={logout}>
-            Sign out of ReplyBot
+            Sign out of Repyla
           </button>
         </Section>
       </div>

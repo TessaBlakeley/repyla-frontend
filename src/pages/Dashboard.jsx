@@ -155,7 +155,7 @@ export default function Dashboard() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Welcome to ReplyBot! 🎉</div>
+              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Welcome to Repyla! 🎉</div>
               <div style={{ opacity: 0.85, fontSize: 14 }}>Connect your Instagram account below to get started.</div>
             </div>
             <button onClick={() => setWelcome(false)} style={{ color: 'white', opacity: 0.7, fontSize: 20, lineHeight: 1 }}>×</button>

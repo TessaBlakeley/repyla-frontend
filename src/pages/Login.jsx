@@ -46,7 +46,7 @@ export default function Login() {
             </svg>
           </div>
           <h2 style={{ marginBottom: 6 }}>Welcome back</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sign in to your ReplyBot account</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sign in to your Repyla account</p>
         </div>
 
         {/* Form */}
