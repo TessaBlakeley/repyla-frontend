@@ -30,7 +30,8 @@ export default function Dashboard() {
   // Formstate
   const [character, setCharacter]     = useState('')
   const [blacklist, setBlacklist]     = useState('')
-  const [llmPrimary, setLlmPrimary]   = useState('gpt-4o')
+  const [vipAccounts, setVipAccounts] = useState([])
+  const [llmPrimary, setLlmPrimary]   = useState('gpt-3.5-turbo')
   const [llmSecondary, setLlmSecondary] = useState('')
   const [mixRatio, setMixRatio]       = useState(100)
   const [windowHours, setWindowHours] = useState(2)
@@ -47,6 +48,7 @@ export default function Dashboard() {
       setStats(statsRes.data)
       setCharacter(cfg.character_prompt || '')
       setBlacklist((cfg.blacklist_accounts || []).join('\n'))
+      setVipAccounts(cfg.special_accounts || [])
       setLlmPrimary(cfg.llm_primary || 'gpt-4o')
       setLlmSecondary(cfg.llm_secondary || '')
       setMixRatio(cfg.llm_mix_ratio ?? 100)
@@ -83,21 +85,25 @@ export default function Dashboard() {
     catch { setConfig(c => ({ ...c, is_active: !newVal })) }
   }
 
-  const saveConfig = async () => {
+  const saveConfig = async (overrides = {}) => {
     setSaving(true)
     try {
       const body = {
         character_prompt: character,
         blacklist_accounts: blacklist.split('\n').map(s => s.trim()).filter(Boolean),
+        special_accounts: vipAccounts,
         llm_primary: llmPrimary,
         llm_secondary: llmSecondary || null,
         llm_mix_ratio: mixRatio,
         window_hours: windowHours,
+        ...overrides,
       }
       const { data } = await api.patch('/bot/config', body)
       setConfig(data)
     } catch (e) {
-      alert(e.response?.data?.detail || 'Save failed.')
+      console.error('Save error:', e)
+      console.error('Response data:', e.response?.data)
+      alert(e.response?.data?.detail || JSON.stringify(e.response?.data) || e.message || 'Save failed.')
     } finally {
       setSaving(false)
     }
@@ -209,9 +215,16 @@ export default function Dashboard() {
                 <h4 style={{ marginBottom: 4 }}>Connect Instagram</h4>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Link your account to start replying.</p>
               </div>
-              <a href="/api/instagram/connect" className="btn btn-primary btn-sm">
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                try {
+                  const { data } = await api.get('/instagram/connect')
+                  window.location.href = data.oauth_url
+                } catch (e) {
+                  alert(e.response?.data?.detail || 'Could not connect Instagram.')
+                }
+              }}>
                 Connect →
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -227,6 +240,9 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* How the bot works info box */}
+        <BotInfoBox />
+
         {/* Config card */}
         <div className="card animate-fade-up delay-3" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ marginBottom: 20 }}>Bot configuration</h3>
@@ -237,11 +253,16 @@ export default function Dashboard() {
               <label className="label">Character prompt</label>
               <textarea className="input" rows={4} placeholder="Describe how your bot should respond..."
                 value={character} onChange={e => setCharacter(e.target.value)}
-                style={{ minHeight: 110 }}
+                style={{ minHeight: 110, borderColor: character.length > 1000 ? 'var(--danger)' : undefined }}
               />
-              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                Describe your persona, tone, and style. The more specific, the better.
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                  Describe your persona, tone, and style.
+                </p>
+                <span style={{ fontSize: 12, fontWeight: 500, color: character.length > 1000 ? 'var(--danger)' : character.length > 900 ? 'var(--warning)' : 'var(--text-tertiary)' }}>
+                  {character.length}/1000
+                </span>
+              </div>
             </div>
 
             {/* Blacklist */}
@@ -252,6 +273,9 @@ export default function Dashboard() {
                 style={{ minHeight: 80 }}
               />
             </div>
+
+            {/* VIP Accounts */}
+            <VipManager vipAccounts={vipAccounts} setVipAccounts={setVipAccounts} />
 
             {/* LLM selector */}
             <div>
@@ -291,8 +315,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Post window (Pro only) */}
-            {isPro && (
+            {/* Post window (Pro + Admin only) */}
+            {(isPro || user?.is_admin) && (
               <div className="form-group">
                 <label className="label">Post-window duration</label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -309,13 +333,14 @@ export default function Dashboard() {
               </div>
             )}
 
-            <button className="btn btn-primary" onClick={saveConfig} disabled={saving} style={{ alignSelf: 'flex-start', minWidth: 120 }}>
-              {saving ? <div className="spinner" /> : 'Save changes'}
+            <button className="btn btn-primary" onClick={() => saveConfig()} disabled={saving || character.length > 1000} style={{ alignSelf: 'flex-start', minWidth: 120 }}>
+              {saving ? <div className="spinner" /> : character.length > 1000 ? `Too long (${character.length}/1000)` : 'Save changes'}
             </button>
           </div>
         </div>
 
-        {/* Manual trigger */}
+        {/* Manual trigger — Trial, Manual und Admin */}
+        {(user?.subscription_tier !== 'pro' || user?.is_admin) && (
         <div className="card animate-fade-up delay-4" style={{ padding: 24, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
@@ -329,7 +354,7 @@ export default function Dashboard() {
                   value={maxReplies} onChange={e => setMaxReplies(Number(e.target.value))}
                   style={{ width: 80 }} />
               </div>
-              <button className="btn btn-primary" onClick={triggerBot} disabled={triggering || !config?.ig_username}>
+              <button className="btn btn-primary" onClick={triggerBot} disabled={triggering || (!config?.ig_username && !user?.is_admin)}>
                 {triggering ? <div className="spinner" /> : '▶ Run now'}
               </button>
             </div>
@@ -340,6 +365,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+        )}
 
         {/* Keyword DM Triggers */}
         <KeywordManager
@@ -576,6 +602,115 @@ function KeywordManager({ keywords, onRefresh, tier, loading, setLoading }) {
               {saving ? <div className="spinner" /> : editItem ? 'Save changes' : 'Add trigger'}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── VIP Account Manager ───────────────────────────────────────────────────────
+
+function VipManager({ vipAccounts, setVipAccounts }) {
+  const [showForm, setShowForm] = useState(false)
+  const [editIdx, setEditIdx]   = useState(null)
+  const [username, setUsername] = useState('')
+  const [prompt, setPrompt]     = useState('')
+
+  const openAdd = () => { setEditIdx(null); setUsername(''); setPrompt(''); setShowForm(true) }
+  const openEdit = (i) => { setEditIdx(i); setUsername(vipAccounts[i].username); setPrompt(vipAccounts[i].extra_prompt); setShowForm(true) }
+  const close = () => { setShowForm(false); setEditIdx(null) }
+
+  const save = () => {
+    if (!username.trim() || !prompt.trim()) return
+    const entry = { username: username.trim().replace('@',''), extra_prompt: prompt.trim() }
+    if (editIdx !== null) {
+      const updated = [...vipAccounts]; updated[editIdx] = entry; setVipAccounts(updated)
+    } else {
+      setVipAccounts([...vipAccounts, entry])
+    }
+    close()
+  }
+
+  const remove = (i) => setVipAccounts(vipAccounts.filter((_, idx) => idx !== i))
+
+  return (
+    <div className="form-group">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label className="label" style={{ margin: 0 }}>VIP accounts <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>— special replies (max 5)</span></label>
+        {vipAccounts.length < 5 && !showForm && (
+          <button className="btn btn-ghost btn-sm" onClick={openAdd}>+ Add</button>
+        )}
+      </div>
+
+      {vipAccounts.length === 0 && !showForm && (
+        <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>No VIP accounts yet. Add up to 5 accounts that get a special reply tone.</p>
+      )}
+
+      {vipAccounts.map((vip, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>@{vip.username}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vip.extra_prompt}</div>
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(i)}>Edit</button>
+          <button className="btn btn-sm" style={{ color: 'var(--danger)' }} onClick={() => remove(i)}>✕</button>
+        </div>
+      ))}
+
+      {showForm && (
+        <div style={{ padding: 16, borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+          <div className="form-group">
+            <label className="label">Instagram username</label>
+            <input className="input" placeholder="corastevensphoto" value={username} onChange={e => setUsername(e.target.value.replace('@',''))} style={{ height: 40 }} />
+          </div>
+          <div className="form-group">
+            <label className="label">Special instruction for the bot</label>
+            <textarea className="input" rows={2} placeholder="She is your girlfriend — be loving, playful and affectionate. Use terms like babe, love."
+              value={prompt} onChange={e => setPrompt(e.target.value)} style={{ minHeight: 70 }} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={close}>Cancel</button>
+            <button className="btn btn-primary btn-sm" onClick={save} disabled={!username.trim() || !prompt.trim()}>
+              {editIdx !== null ? 'Update' : 'Add VIP'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Bot Info Box ──────────────────────────────────────────────────────────────
+
+function BotInfoBox() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="card animate-fade-up" style={{ padding: '14px 20px', marginBottom: 20, background: 'var(--accent-light)', border: '1px solid rgba(0,113,227,0.15)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 15 }}>ℹ️</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--accent)' }}>How the bot works</span>
+        </div>
+        <span style={{ fontSize: 12, color: 'var(--accent)', opacity: 0.7 }}>{open ? 'Hide ▲' : 'Show ▼'}</span>
+      </div>
+      {open && (
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { icon: '✅', text: 'Replies to comments on your latest post(s)' },
+            { icon: '✅', text: 'Every comment gets a unique, human-sounding reply' },
+            { icon: '✅', text: 'Keyword triggers send an automatic DM to the commenter' },
+            { icon: '✅', text: 'VIP accounts get a special reply tone you define' },
+            { icon: '⏭️', text: 'Emoji-only comments are skipped (no reply sent)' },
+            { icon: '⏭️', text: 'Accounts on your blacklist are ignored' },
+            { icon: '⏭️', text: 'Comments already replied to are never answered twice' },
+            { icon: '⏱️', text: 'A short delay between replies keeps it looking natural' },
+            { icon: '📊', text: 'All replies are logged and can be deleted anytime' },
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, fontSize: 13, color: 'var(--text-secondary)', alignItems: 'flex-start' }}>
+              <span style={{ flexShrink: 0 }}>{item.icon}</span>
+              <span>{item.text}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

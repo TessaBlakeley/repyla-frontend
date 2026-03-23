@@ -140,9 +140,17 @@ export default function Settings() {
         {/* Instagram */}
         <Section title="Instagram">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <a href="/api/instagram/connect" className="btn btn-secondary" style={{ display: 'inline-flex', width: 'fit-content' }}>
+            <button className="btn btn-secondary" style={{ display: 'inline-flex', width: 'fit-content' }}
+              onClick={async () => {
+                try {
+                  const { data } = await api.get('/instagram/connect')
+                  window.location.href = data.oauth_url
+                } catch (e) {
+                  setMsg(e.response?.data?.detail || 'Could not connect Instagram.')
+                }
+              }}>
               Reconnect Instagram account
-            </a>
+            </button>
             <hr className="divider" />
             <div>
               <button className="btn btn-danger btn-sm" onClick={disconnectIG} disabled={saving === 'ig'}>
