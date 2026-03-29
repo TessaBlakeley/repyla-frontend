@@ -4,9 +4,10 @@ import Layout from '../components/Layout'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
+// gpt-3.5-turbo entfernt — gpt-4o ist der Standard
 const LLM_OPTIONS = [
-  { value: 'gpt-3.5-turbo',              label: 'ChatGPT',      provider: 'OpenAI'    },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', provider: 'Anthropic' },
+  { value: 'gpt-4o',                      label: 'GPT-4o',        provider: 'OpenAI'    },
+  { value: 'claude-3-5-sonnet-20241022',  label: 'Claude Sonnet', provider: 'Anthropic' },
 ]
 
 export default function Dashboard() {
@@ -31,7 +32,7 @@ export default function Dashboard() {
   const [character, setCharacter]       = useState('')
   const [blacklist, setBlacklist]       = useState('')
   const [vipAccounts, setVipAccounts]   = useState([])
-  const [llmPrimary, setLlmPrimary]     = useState('gpt-3.5-turbo')
+  const [llmPrimary, setLlmPrimary]     = useState('gpt-4o')
   const [llmSecondary, setLlmSecondary] = useState('')
   const [mixRatio, setMixRatio]         = useState(100)
   const [maxReplies, setMaxReplies]     = useState(5)
@@ -48,7 +49,9 @@ export default function Dashboard() {
       setCharacter(cfg.character_prompt || '')
       setBlacklist((cfg.blacklist_accounts || []).join('\n'))
       setVipAccounts(cfg.special_accounts || [])
-      setLlmPrimary(cfg.llm_primary || 'gpt-3.5-turbo')
+      // Fallback: ältere Configs mit gpt-3.5-turbo → auf gpt-4o upgraden
+      const primary = cfg.llm_primary === 'gpt-3.5-turbo' ? 'gpt-4o' : (cfg.llm_primary || 'gpt-4o')
+      setLlmPrimary(primary)
       setLlmSecondary(cfg.llm_secondary || '')
       setMixRatio(cfg.llm_mix_ratio ?? 100)
     } catch (e) {
@@ -96,6 +99,13 @@ export default function Dashboard() {
 
     return () => clearInterval(pollRef.current)
   }, [load, loadReplies, loadKeywords, loadLogs])
+
+  // max_replies initial auf User-Limit setzen sobald user geladen
+  useEffect(() => {
+    if (user?.max_replies_per_run) {
+      setMaxReplies(Math.min(5, user.max_replies_per_run))
+    }
+  }, [user])
 
   const toggleActive = async () => {
     const newVal = !config.is_active
@@ -159,6 +169,8 @@ export default function Dashboard() {
   const isPro = user?.subscription_tier === 'pro'
   const isAdmin = user?.is_admin
   const dailyPct = stats ? Math.round((stats.daily_used / stats.daily_limit) * 100) : 0
+  // max_replies_per_run kommt jetzt korrekt aus UserOut
+  const maxRepliesLimit = user?.max_replies_per_run ?? 5
 
   return (
     <Layout>
@@ -343,7 +355,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <label className="label" style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 13 }}>Max replies</label>
-                  <input className="input" type="number" min="1" max={user?.max_replies_per_run ?? 5}
+                  <input className="input" type="number" min="1" max={maxRepliesLimit}
                     value={maxReplies} onChange={e => setMaxReplies(Number(e.target.value))}
                     style={{ width: 80 }} />
                 </div>
