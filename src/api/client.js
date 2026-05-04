@@ -12,11 +12,11 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 401 → ausloggen und zu Login weiterleiten
+// 401 → ausloggen und zu Login weiterleiten (nicht beim Login selbst)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && !err.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }

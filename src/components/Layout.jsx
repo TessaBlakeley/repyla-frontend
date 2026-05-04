@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: IconGrid },
@@ -15,11 +15,6 @@ export default function Layout({ children }) {
     ...NAV,
     ...(user?.is_admin ? [{ to: '/admin', label: 'Admin', icon: IconShield }] : []),
   ]
-
-  // Close sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
