@@ -3,6 +3,22 @@ import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 
+const TIER_LABEL = {
+  trial:    'Trial',
+  manual:   'Manual',
+  starter:  'Starter',
+  pro:      'Pro',
+  business: 'Business',
+}
+
+const TIER_BADGE = {
+  trial:    'badge-gray',
+  manual:   'badge-blue',
+  starter:  'badge-blue',
+  pro:      'badge-orange',
+  business: 'badge-purple',
+}
+
 export default function Settings() {
   const { user, updateUser, logout } = useAuth()
   const [saving, setSaving] = useState(null)
@@ -103,8 +119,8 @@ export default function Settings() {
           <Row label="Email" value={user?.email} />
           <Row label="Plan"
             value={
-              <span className={`badge ${tier === 'pro' ? 'badge-blue' : tier === 'manual' ? 'badge-green' : 'badge-gray'}`}>
-                {tier === 'trial' ? 'Trial' : tier === 'pro' ? 'Pro' : 'Manual'}
+              <span className={`badge ${TIER_BADGE[tier] || 'badge-gray'}`}>
+                {TIER_LABEL[tier] || tier || 'Trial'}
               </span>
             }
           />

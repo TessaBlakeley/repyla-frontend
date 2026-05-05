@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
 const TIER_COLORS = {
-  trial:  { badge: 'badge-gray',   label: 'Trial'  },
-  manual: { badge: 'badge-blue',   label: 'Manual' },
-  pro:    { badge: 'badge-orange', label: 'Pro'    },
+  trial:    { badge: 'badge-gray',   label: 'Trial'    },
+  manual:   { badge: 'badge-blue',   label: 'Manual'   },
+  starter:  { badge: 'badge-blue',   label: 'Starter'  },
+  pro:      { badge: 'badge-orange', label: 'Pro'       },
+  business: { badge: 'badge-purple', label: 'Business' },
 }
 const STATUS_COLORS = {
   trialing: 'badge-green',
@@ -131,7 +133,8 @@ export default function Admin() {
             <AdminStat label="Total users"    value={stats.total_users}        />
             <AdminStat label="Trial"          value={stats.trial_users}         color="#636366" />
             <AdminStat label="Manual"         value={stats.manual_users}        color="var(--accent)" />
-            <AdminStat label="Pro"            value={stats.pro_users}           color="#bf5af2" />
+            <AdminStat label="Pro"            value={stats.pro_users}           color="#ff9500" />
+            <AdminStat label="Business"       value={stats.business_users}      color="#bf5af2" />
             <AdminStat label="Active bots"    value={stats.active_bots}         color="var(--success)" />
             <AdminStat label="Replies today"  value={stats.replies_today}       />
             <AdminStat label="Replies / week" value={stats.replies_this_week}   />
@@ -215,11 +218,13 @@ export default function Admin() {
             onKeyDown={e => e.key === 'Enter' && loadUsers(1)}
             style={{ maxWidth: 280 }}
           />
-          <select className="input" value={tierFilter} onChange={e => setTierFilter(e.target.value)} style={{ width: 140 }}>
+          <select className="input" value={tierFilter} onChange={e => setTierFilter(e.target.value)} style={{ width: 160 }}>
             <option value="">All plans</option>
             <option value="trial">Trial</option>
             <option value="manual">Manual</option>
+            <option value="starter">Starter</option>
             <option value="pro">Pro</option>
+            <option value="business">Business</option>
           </select>
           <button className="btn btn-secondary" onClick={() => loadUsers(1)}>Search</button>
           <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setTierFilter('') }}>
@@ -357,7 +362,9 @@ function EditModal({ user, onClose, onSave }) {
             <select className="input" value={tier} onChange={e => setTier(e.target.value)}>
               <option value="trial">Trial</option>
               <option value="manual">Manual</option>
+              <option value="starter">Starter</option>
               <option value="pro">Pro</option>
+              <option value="business">Business</option>
             </select>
           </div>
 

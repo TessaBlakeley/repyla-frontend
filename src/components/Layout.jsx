@@ -7,6 +7,22 @@ const NAV = [
   { to: '/settings',  label: 'Settings',  icon: IconGear  },
 ]
 
+const TIER_LABEL = {
+  trial:    'Trial',
+  manual:   'Manual',
+  starter:  'Starter',
+  pro:      'Pro',
+  business: 'Business',
+}
+
+const TIER_BADGE = {
+  trial:    'badge-gray',
+  manual:   'badge-blue',
+  starter:  'badge-blue',
+  pro:      'badge-orange',
+  business: 'badge-purple',
+}
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -93,6 +109,11 @@ export default function Layout({ children }) {
 }
 
 function Sidebar({ user, logout, nav, mobileOpen, onClose }) {
+  const tier = user?.subscription_tier
+  const tierLabel = TIER_LABEL[tier] || tier || 'Trial'
+  const tierBadge = TIER_BADGE[tier] || 'badge-gray'
+  const isActive = user?.subscription_status === 'active' || user?.subscription_status === 'trialing'
+
   return (
     <aside
       className={`desktop-sidebar ${mobileOpen ? 'open' : ''}`}
@@ -169,9 +190,9 @@ function Sidebar({ user, logout, nav, mobileOpen, onClose }) {
             {user?.email}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
-            <span className={`badge badge-${user?.subscription_status === 'active' || user?.subscription_status === 'trialing' ? 'green' : 'red'}`}
+            <span className={`badge ${isActive ? tierBadge : 'badge-red'}`}
               style={{ fontSize: 11, padding: '2px 8px' }}>
-              {user?.subscription_tier === 'trial' ? 'Trial' : user?.subscription_tier === 'pro' ? 'Pro' : 'Manual'}
+              {tierLabel}
             </span>
           </div>
         </div>
