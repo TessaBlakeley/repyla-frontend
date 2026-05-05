@@ -49,7 +49,6 @@ export default function Dashboard() {
       setCharacter(cfg.character_prompt || '')
       setBlacklist((cfg.blacklist_accounts || []).join('\n'))
       setVipAccounts(cfg.special_accounts || [])
-      // Fallback: ältere Configs mit gpt-3.5-turbo → auf gpt-4o upgraden
       const primary = cfg.llm_primary === 'gpt-3.5-turbo' ? 'gpt-4o' : (cfg.llm_primary || 'gpt-4o')
       setLlmPrimary(primary)
       setLlmSecondary(cfg.llm_secondary || '')
@@ -77,7 +76,6 @@ export default function Dashboard() {
     } catch {}
   }, [])
 
-  // ── Live Activity Polling ─────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {
     try {
       const { data } = await api.get('/bot/logs?limit=5')
@@ -91,16 +89,14 @@ export default function Dashboard() {
     loadKeywords()
     loadLogs()
 
-    // Poll alle 15 Sekunden
     pollRef.current = setInterval(() => {
       loadLogs()
-      load() // stats auch aktualisieren
+      load()
     }, 15000)
 
     return () => clearInterval(pollRef.current)
   }, [load, loadReplies, loadKeywords, loadLogs])
 
-  // max_replies initial auf User-Limit setzen sobald user geladen
   useEffect(() => {
     if (user?.max_replies_per_run) {
       setMaxReplies(Math.min(5, user.max_replies_per_run))
@@ -141,7 +137,6 @@ export default function Dashboard() {
     try {
       const { data } = await api.post('/bot/trigger', { max_replies: maxReplies })
       setTriggerMsg(data.message)
-      // Nach 3 Sek alles neu laden
       setTimeout(() => { load(); loadReplies(); loadLogs() }, 3000)
     } catch (e) {
       setTriggerMsg(e.response?.data?.detail || 'Trigger failed.')
@@ -169,7 +164,6 @@ export default function Dashboard() {
   const isPro = user?.subscription_tier === 'pro'
   const isAdmin = user?.is_admin
   const dailyPct = stats ? Math.round((stats.daily_used / stats.daily_limit) * 100) : 0
-  // max_replies_per_run kommt jetzt korrekt aus UserOut
   const maxRepliesLimit = user?.max_replies_per_run ?? 5
 
   return (
@@ -266,9 +260,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── LIVE ACTIVITY FEED ──────────────────────────────────────────── */}
         <LiveActivity logs={logs} />
-
         <BotInfoBox />
 
         {/* Config */}
@@ -344,7 +336,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Manual trigger — nur Trial, Manual, Admin */}
+        {/* Manual trigger */}
         {(!isPro || isAdmin) && (
           <div className="card animate-fade-up delay-4" style={{ padding: 24, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -379,7 +371,7 @@ export default function Dashboard() {
           tier={user?.subscription_tier}
         />
 
-        {/* Reply history — 5 pro Seite */}
+        {/* Reply history */}
         <div className="card animate-fade-up delay-5" style={{ padding: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <div>
@@ -423,7 +415,7 @@ export default function Dashboard() {
   )
 }
 
-// ── Live Activity Feed ────────────────────────────────────────────────────────
+// ── Live Activity Feed ───────────────────────────────────────────────────────────────────
 function LiveActivity({ logs }) {
   if (!logs || logs.length === 0) return null
 
@@ -501,7 +493,7 @@ function formatTimeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-// ── StatCard ──────────────────────────────────────────────────────────────────
+// ── StatCard ──────────────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub }) {
   return (
     <div className="card" style={{ padding: '18px 20px' }}>
@@ -512,7 +504,7 @@ function StatCard({ label, value, sub }) {
   )
 }
 
-// ── ReplyRow ──────────────────────────────────────────────────────────────────
+// ── ReplyRow ──────────────────────────────────────────────────────────────────────────
 function ReplyRow({ reply, onDelete, odd }) {
   return (
     <div style={{
@@ -551,28 +543,113 @@ function ReplyRow({ reply, onDelete, odd }) {
   )
 }
 
-// ── Keyword Manager ───────────────────────────────────────────────────────────
+// ── DM Preview ─────────────────────────────────────────────────────────────────────────
+function DmPreview({ message, ctaUrl, ctaButtonText }) {
+  if (!message && !ctaUrl) return null
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 6 }}>PREVIEW</div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        {/* Avatar */}
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"/>
+          </svg>
+        </div>
+        {/* Bubble */}
+        <div style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: '0 12px 12px 12px',
+          padding: '10px 12px',
+          maxWidth: 280,
+          flex: 1,
+        }}>
+          {message && (
+            <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: ctaUrl ? 10 : 0, lineHeight: 1.4 }}>
+              {message}
+            </p>
+          )}
+          {ctaUrl && (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '9px 14px',
+              textAlign: 'center',
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              cursor: 'default',
+            }}>
+              {ctaButtonText || 'Click Here!!'}
+            </div>
+          )}
+        </div>
+      </div>
+      {ctaUrl && (
+        <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6, paddingLeft: 36 }}>
+          → {ctaUrl}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Keyword Manager ───────────────────────────────────────────────────────────────────
 function KeywordManager({ keywords, onRefresh, tier }) {
   const isTrial = tier === 'trial'
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [keyword, setKeyword] = useState('')
   const [message, setMessage] = useState('')
+  const [ctaUrl, setCtaUrl] = useState('')
+  const [ctaButtonText, setCtaButtonText] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const openAdd = () => { setEditItem(null); setKeyword(''); setMessage(''); setError(''); setShowForm(true) }
-  const openEdit = (kw) => { setEditItem(kw); setKeyword(kw.keyword); setMessage(kw.dm_message); setError(''); setShowForm(true) }
+  const openAdd = () => {
+    setEditItem(null)
+    setKeyword('')
+    setMessage('')
+    setCtaUrl('')
+    setCtaButtonText('')
+    setError('')
+    setShowForm(true)
+  }
+
+  const openEdit = (kw) => {
+    setEditItem(kw)
+    setKeyword(kw.keyword)
+    setMessage(kw.dm_message)
+    setCtaUrl(kw.cta_url || '')
+    setCtaButtonText(kw.cta_button_text || '')
+    setError('')
+    setShowForm(true)
+  }
+
   const closeForm = () => { setShowForm(false); setEditItem(null) }
 
   const save = async () => {
     if (!keyword.trim() || !message.trim()) { setError('Keyword and message are required.'); return }
+    if (ctaUrl && !ctaUrl.startsWith('http')) { setError('URL must start with http:// or https://'); return }
+    if (ctaButtonText.length > 20) { setError('Button text max 20 characters.'); return }
     setSaving(true); setError('')
     try {
+      const body = {
+        keyword: keyword.trim(),
+        dm_message: message.trim(),
+        cta_url: ctaUrl.trim() || null,
+        cta_button_text: ctaButtonText.trim() || null,
+      }
       if (editItem) {
-        await api.patch(`/keywords/${editItem.id}`, { keyword: keyword.trim(), dm_message: message.trim() })
+        await api.patch(`/keywords/${editItem.id}`, body)
       } else {
-        await api.post('/keywords', { keyword: keyword.trim(), dm_message: message.trim() })
+        await api.post('/keywords', body)
       }
       await onRefresh(); closeForm()
     } catch (e) { setError(e.response?.data?.detail || 'Save failed.') }
@@ -624,12 +701,20 @@ function KeywordManager({ keywords, onRefresh, tier }) {
                   <span style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>
                     {kw.keyword}
                   </span>
+                  {kw.cta_url && (
+                    <span className="badge badge-purple" style={{ fontSize: 11 }}>Button</span>
+                  )}
                   <span className="badge badge-gray" style={{ fontSize: 11 }}>{kw.sent_count} sent</span>
                   {!kw.is_active && <span className="badge badge-gray" style={{ fontSize: 11 }}>paused</span>}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {kw.dm_message}
                 </div>
+                {kw.cta_url && (
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    🔗 {kw.cta_button_text || 'Click Here!!'} → {kw.cta_url}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <label className="toggle" style={{ transform: 'scale(0.85)' }}>
@@ -647,17 +732,55 @@ function KeywordManager({ keywords, onRefresh, tier }) {
       {showForm && (
         <div style={{ marginTop: 16, padding: 20, borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h4>{editItem ? 'Edit trigger' : 'New keyword trigger'}</h4>
+
           <div className="form-group">
             <label className="label">Keyword</label>
             <input className="input" placeholder="e.g. LINK, INFO, PRICE" value={keyword} onChange={e => setKeyword(e.target.value)} />
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Case-insensitive. Can appear anywhere in the comment.</p>
           </div>
+
           <div className="form-group">
             <label className="label">DM message</label>
             <textarea className="input" rows={3} placeholder="Hey! Here's the link you asked for: ..."
               value={message} onChange={e => setMessage(e.target.value)} style={{ minHeight: 80 }} />
+            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>This is the card title when a button is set, or the full message without one.</p>
           </div>
-          {error && <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 13 }}>{error}</div>}
+
+          {/* CTA Button section */}
+          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Button (optional)</span>
+              <span className="badge badge-purple" style={{ fontSize: 11 }}>Instagram card</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="form-group">
+                <label className="label">Link URL</label>
+                <input className="input" placeholder="https://your-link.com"
+                  value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label className="label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Button text</span>
+                  <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>{ctaButtonText.length}/20</span>
+                </label>
+                <input className="input" placeholder="Click Here!! (default)" maxLength={20}
+                  value={ctaButtonText} onChange={e => setCtaButtonText(e.target.value)} />
+              </div>
+            </div>
+
+            <DmPreview
+              message={message}
+              ctaUrl={ctaUrl}
+              ctaButtonText={ctaButtonText}
+            />
+          </div>
+
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 13 }}>{error}</div>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-secondary" onClick={closeForm}>Cancel</button>
             <button className="btn btn-primary" onClick={save} disabled={saving}>
@@ -670,7 +793,7 @@ function KeywordManager({ keywords, onRefresh, tier }) {
   )
 }
 
-// ── VIP Manager ───────────────────────────────────────────────────────────────
+// ── VIP Manager ───────────────────────────────────────────────────────────────────────
 function VipManager({ vipAccounts, setVipAccounts }) {
   const [showForm, setShowForm] = useState(false)
   const [editIdx, setEditIdx] = useState(null)
@@ -737,7 +860,7 @@ function VipManager({ vipAccounts, setVipAccounts }) {
   )
 }
 
-// ── Bot Info Box ──────────────────────────────────────────────────────────────
+// ── Bot Info Box ─────────────────────────────────────────────────────────────────────
 function BotInfoBox() {
   const [open, setOpen] = useState(false)
   return (
@@ -755,6 +878,7 @@ function BotInfoBox() {
             { icon: '✅', text: 'Replies to comments on your latest post(s)' },
             { icon: '✅', text: 'Every comment gets a unique, human-sounding reply' },
             { icon: '✅', text: 'Keyword triggers send an automatic DM (all plans)' },
+            { icon: '🔗', text: 'Optional CTA button: send a link as an Instagram card with a tap button' },
             { icon: '⚡', text: 'Pro: instant webhook reactions — no polling delay' },
             { icon: '⏭️', text: 'Emoji-only comments are skipped' },
             { icon: '⏭️', text: 'Blacklisted accounts are ignored' },
